@@ -4,7 +4,8 @@
 #include <vector>
 #include <iomanip>
 #include <random>
-#include <algorithm>
+#include <array>
+// #include <algorithm>
 
 #include "KICachePolicy.h"
 #include "KLfuCache.h"

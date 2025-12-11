@@ -2,6 +2,7 @@
 
 #include "KArcCacheNode.h"
 #include <unordered_map>
+#include <list>
 #include <map>
 #include <mutex>
 
