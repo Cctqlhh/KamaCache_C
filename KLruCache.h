@@ -272,6 +272,76 @@ private:
     int                                     k_; // 进入缓存队列的评判标准
     std::unique_ptr<KLruCache<Key, size_t>> historyList_; // 访问数据历史记录(value为访问次数)
     std::unordered_map<Key, Value>          historyValueMap_; // 存储未达到k次访问的数据值
+    // historyValueMap_ 应该是用来暂时替代 数据库/硬盘 获取数据的，
+    // 实际场景中缓存未命中后 historyList 记录次数，获取到数据后根据次数决定是否放置到缓存中。
+};
+
+// LRU优化：Lru-2版本。 通过继承的方式进行再优化
+// SLRU(Segmented LRU) 实际上就是2级，级数越多，越接近 LFU(Least Frequently Used，最不经常使用)
+// capacity : historyCapacity 建议 8:2 / 7:3
+template<typename Key, typename Value>
+class KLru2Cache : public KLruCache<Key, Value>
+{
+public:
+    KLru2Cache(int capacity, int historyCapacity)
+        : KLruCache<Key, Value>(capacity) // 调用基类构造
+        , historyCache_(std::make_unique<KLruCache<Key, Value>>(historyCapacity))
+    {}
+
+    ~KLru2Cache() override = default;
+
+    Value get(Key key) override
+    {
+        // 首先尝试从主缓存获取数据
+        // 如果数据在主缓存中，直接返回 
+        Value value{};
+        if(KLruCache<Key, Value>::get(key, value))
+        {
+            return value;
+        }
+
+        // 如果数据不在主缓存，但存在于history，说明访问次数达到了2次
+        if (historyCache_->get(key, value)) 
+        {
+            // 有历史值，从历史记录移除，将其添加到主缓存
+            historyCache_->remove(key);
+            
+            // 添加到主缓存
+            KLruCache<Key, Value>::put(key, value);
+            
+            return value;
+        }
+
+        // 没有历史值记录，无法添加到缓存，返回默认值
+        return value;
+    }
+
+    void put(Key key, Value value) override
+    {
+        // 检查是否已在主缓存
+        Value existingValue{};        
+        if (KLruCache<Key, Value>::get(key, existingValue)) 
+        {
+            // 已在主缓存，直接更新
+            KLruCache<Key, Value>::put(key, value);
+            return;
+        }
+        
+        // 检查历史如果有，则达到2次访问，删除并添加到主缓存
+        if (historyCache_->get(key, existingValue)) 
+        {
+            // 达到阈值，添加到主缓存
+            historyCache_->remove(key);
+            KLruCache<Key, Value>::put(key, value);
+            return;
+        }
+        
+        // 主缓存和历史都没有，则添加历史记录
+        historyCache_->put(key, value);
+    }
+
+private:
+    std::unique_ptr<KLruCache<Key, Value>> historyCache_; // 访问数据历史记录(value为访问次数)
 };
 
 // lru优化：对lru进行分片，提高高并发使用的性能
