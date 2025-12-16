@@ -132,7 +132,7 @@ public:
 
     Value get(Key key) override
     {
-      Value value;
+      Value value{};
       get(key, value);
       return value;
     }
@@ -166,7 +166,7 @@ private:
     int                                            curTotalNum_; // 当前访问所有缓存次数总数 
     std::mutex                                     mutex_; // 互斥锁
     NodeMap                                        nodeMap_; // key 到 缓存节点的映射
-    std::unordered_map<int, FreqList<Key, Value>*> freqToFreqList_;// 访问频次到该频次链表的映射
+    std::unordered_map<int, std::unique_ptr<FreqList<Key, Value>>> freqToFreqList_;// 访问频次到该频次链表的映射
 };
 
 template<typename Key, typename Value>
@@ -238,7 +238,7 @@ void KLfuCache<Key, Value>::addToFreqList(NodePtr node)
     if (freqToFreqList_.find(node->freq) == freqToFreqList_.end())
     {
         // 不存在则创建
-        freqToFreqList_[node->freq] = new FreqList<Key, Value>(node->freq);
+        freqToFreqList_[node->freq] = std::make_unique<FreqList<Key, Value>>(node->freq);
     }
 
     freqToFreqList_[freq]->addNode(node);
@@ -327,7 +327,7 @@ public:
         size_t sliceSize = std::ceil(capacity_ / static_cast<double>(sliceNum_)); // 每个lfu分片的容量
         for (int i = 0; i < sliceNum_; ++i)
         {
-            lfuSliceCaches_.emplace_back(new KLfuCache<Key, Value>(sliceSize, maxAverageNum));
+            lfuSliceCaches_.emplace_back(std::make_unique<KLfuCache<Key, Value>>(sliceSize, maxAverageNum));
         }
     }
 
@@ -347,7 +347,7 @@ public:
 
     Value get(Key key)
     {
-        Value value;
+        Value value{};
         get(key, value);
         return value;
     }

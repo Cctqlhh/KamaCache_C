@@ -356,7 +356,7 @@ public:
         size_t sliceSize = std::ceil(capacity / static_cast<double>(sliceNum_)); // 获取每个分片的大小
         for (int i = 0; i < sliceNum_; ++i)
         {
-            lruSliceCaches_.emplace_back(std::make_unique(KLruCache<Key, Value>(sliceSize)));  
+            lruSliceCaches_.emplace_back(std::make_unique<KLruCache<Key, Value>>(sliceSize));  
         }
     }
 
